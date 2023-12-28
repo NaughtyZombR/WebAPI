@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kanban Board</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      display: flex;
+    }
+
+    .board {
+      flex: 1;
+      margin-right: 20px;
+      background-color: #fff;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+.board-list-item {
+    margin: 5px 0;
+    padding: 5px;
+    background-color: #eee;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .board-list-item:hover {
+    background-color: #ddd;
+  }
+
+    .column {
+      background-color: #eee;
+      margin: 0 10px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .task {
+      background-color: #fff;
+      margin: 0 0 10px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    form {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+      <div class="board" id="kanban-board">
+          <h2>Kanban Board</h2>
+          <form id="add-board-form">
+              <label for="board-title">Add Board:</label>
+              <input type="text" id="board-title" required>
+              <button type="button" onclick="addBoard()">Add</button>
+          </form>
+
+          <!-- Добавьте кнопку для переключения между досками и колонками -->
+          <div id="switch-buttons">
+              <button type="button" onclick="toggleView('boards')">All Boards</button>
+          </div>
+
+          <!-- Блок для отображения списка досок -->
+          <ul id="board-list"></ul>
+
+          <!-- Добавьте div для отображения колонок -->
+          <div id="columns-container"></div>
+      </div>
+
+    <div id="auth-container">
+      <h2>Authentication</h2>
+      <form id="register-form">
+        <label for="register-username">Username:</label>
+        <input type="text" id="register-username" required>
+        <label for="register-email">Email:</label>
+        <input type="email" id="register-email" required>
+        <label for="register-password">Password:</label>
+        <input type="password" id="register-password" required>
+        <button type="button" onclick="register()">Register</button>
+      </form>
+
+        <form id="login-form" onsubmit="login(event)">
+            <label for="login-username">Username:</label>
+            <input type="text" id="login-username" name="username" required>
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" name="password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+  </div>
+
+  <script>
+
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+// Переменная для отслеживания текущего режима (доски, колонки или задачи)
+  let currentView = 'boards';
+
+  // Получение всех досок и отображение их на странице
+  function getAllBoards() {
+    fetch('/api/v1/boards')
+      .then(response => response.json())
+      .then(data => {
+        console.log('All Boards:', data);
+
+        const boardList = document.getElementById('board-list');
+        boardList.innerHTML = ''; // Очищаем текущий список досок
+
+        data.forEach(board => {
+          const listItem = document.createElement('li');
+          listItem.textContent = board.title;
+
+          // Добавьте класс к элементу списка
+          listItem.classList.add('board-list-item');
+
+          // Добавьте обработчик событий для элемента списка
+          listItem.addEventListener('click', () => {
+            // Вызовите функцию для загрузки колонок при клике на доску
+            getColumnsForBoard(board.id);
+          });
+
+          boardList.appendChild(listItem);
+        });
+      })
+      .catch(error => console.error('Error:', error));
+  }
+
+  // Получение колонок для конкретной доски
+  function getColumnsForBoard(boardId) {
+    fetch(`/api/v1/boards/columns/board/${boardId}`)
+      .then(response => response.json())
+      .then(columns => {
+        console.log(`Columns for board ${boardId}:`, columns);
+
+        // Добавьте код для отображения колонок на странице
+        const columnsContainer = document.getElementById('columns-container');
+        columnsContainer.innerHTML = ''; // Очищаем текущий контейнер колонок
+
+        // Добавьте кнопку для создания новой колонки
+        columnsContainer.innerHTML += `
+          <button type="button" onclick="addColumn(${boardId})">Add Column</button>
+        `;
+
+        columns.forEach(column => {
+          const columnElement = document.createElement('div');
+          columnElement.textContent = column.title;
+
+          // Добавьте класс к элементу колонки
+          columnElement.classList.add('column');
+
+          // Добавьте обработчик событий для элемента колонки
+          columnElement.addEventListener('click', () => {
+            // Вызовите функцию для загрузки задач при клике на колонку
+            getTasksForColumn(column.id);
+          });
+
+          columnsContainer.appendChild(columnElement);
+        });
+
+        // Скрыть кнопку для переключения на доски и отобразить кнопку "Назад"
+        document.getElementById('switch-buttons').innerHTML = `
+          <button type="button" onclick="toggleView('back')">Back</button>
+        `;
+      })
+      .catch(error => console.error('Error:', error));
+  }
+
+  // Функция для переключения между режимами (доски, колонки или задачи)
+  function toggleView(view) {
+    if (view === 'boards') {
+      // Если в режиме досок, отобразить список досок
+      getAllBoards();
+    } else if (view === 'back') {
+      // Если в режиме "Назад", вернуться к списку досок
+      document.getElementById('columns-container').innerHTML = '';
+      document.getElementById('switch-buttons').innerHTML = `
+        <button type="button" onclick="toggleView('boards')">All Boards</button>
+      `;
+    }
+  }
+
+  // Добавление новой колонки
+  function addColumn(boardId) {
+    const title = prompt('Enter column title:');
+    if (title) {
+      fetch('/api/v1/boards/columns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, board_id: boardId }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.id) {
+            // Перезагрузка колонок после добавления новой
+            getColumnsForBoard(boardId);
+          } else {
+                        let msg = 'Failed to add column';
+
+              if (data.detail instanceof String) {
+                  msg += `\n${data.detail}`;
+              }
+              if (data.detail instanceof Array) {
+                  msg += `\n${data.detail[0].msg}`;
+              }
+                        alert(msg);
+                    }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+  }
+
+  // Получение задач для конкретной колонки
+  function getTasksForColumn(columnId) {
+    fetch(`/api/v1/boards/columns/tasks/column/${columnId}`)
+      .then(response => response.json())
+      .then(tasks => {
+        console.log(`Tasks for column ${columnId}:`, tasks);
+
+        // Добавьте код для отображения задач на странице
+        const tasksContainer = document.getElementById('columns-container');
+        tasksContainer.innerHTML = ''; // Очищаем текущий контейнер задач
+
+        tasks.forEach(task => {
+          const taskElement = document.createElement('div');
+          taskElement.textContent = task.title;
+
+          // Добавьте класс к элементу задачи
+          taskElement.classList.add('task');
+
+          // Добавьте обработчик событий для элемента задачи
+          taskElement.addEventListener('click', () => {
+            // Вызовите функцию для отображения информации о задаче
+            showTaskDetails(task);
+          });
+
+          tasksContainer.appendChild(taskElement);
+        });
+
+        // Скрыть кнопку для переключения на доски и отобразить кнопку "Назад"
+        document.getElementById('switch-buttons').innerHTML = `
+          <button type="button" onclick="toggleView('back')">Back</button>
+        `;
+      })
+      .catch(error => console.error('Error:', error));
+  }
+
+  // Функция для отображения информации о задаче
+  function showTaskDetails(task) {
+    // Здесь вы можете добавить код для отображения информации о задаче
+    // Например, открыть модальное окно с подробностями задачи
+    alert(`Task Details:\nTitle: ${task.title}\nAssignee ID: ${task.assignee_id}`);
+  }
+
+  // Вызывать функцию получения всех досок при загрузке страницы
+  document.addEventListener('DOMContentLoaded', getAllBoards);
+
+    // Добавление доски
+    function addBoard() {
+      const title = document.getElementById('board-title').value;
+    // Получить токен из куки
+    const accessToken = getCookie('access_token');
+      // Отправить запрос на сервер для создания доски
+      // Используйте fetch или другую библиотеку для работы с API
+      fetch('/api/v1/boards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ title }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.id) {
+          // Добавить доску на страницу
+          const board = document.getElementById('kanban-board');
+          const column = document.createElement('div');
+          column.className = 'column';
+          column.innerHTML = `<h3>${data.title}</h3>`;
+          board.appendChild(column);
+        } else {
+                        let msg = 'Failed to add board';
+
+            if (data.detail instanceof String) {
+                msg += `\n${data.detail}`;
+            }
+            if (data.detail instanceof Array) {
+                msg += `\n${data.detail[0].msg}`;
+            }
+                        alert(msg);
+                    }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+
+    // Регистрация пользователя
+    function register() {
+      const username = document.getElementById('register-username').value;
+      const email = document.getElementById('register-email').value;
+      const password = document.getElementById('register-password').value;
+
+      // Отправить запрос на сервер для регистрации пользователя
+      // Используйте fetch или другую библиотеку для работы с API
+      fetch('/api/v1/users/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.id) {
+          alert('Registration successful');
+        } else {
+                        let msg = 'Registration failed';
+
+            if (data.detail instanceof String) {
+                msg += `\n${data.detail}`;
+            }
+            if (data.detail instanceof Array) {
+                msg += `\n${data.detail[0].msg}`;
+            }
+                        alert(msg);
+                    }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+
+    // Вход пользователя
+    function login(event) {
+        event.preventDefault(); // Предотвращение стандартной отправки формы
+
+        const form = document.getElementById('login-form');
+        const formData = new FormData(form);
+
+        // Преобразовать FormData в строку в формате x-www-form-urlencoded
+        const urlSearchParams = new URLSearchParams(formData);
+        const requestBody = urlSearchParams.toString();
+
+        // Отправить запрос на сервер для входа пользователя
+        // Используйте fetch или другую библиотеку для работы с API
+        fetch('/api/v1/users/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: requestBody,
+        })
+
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Server Response:', data);
+
+                    if (data.access_token) {
+                        // Сохранить токен в куки
+                        document.cookie = `access_token=${data.access_token}; path=/`;
+                        alert('Login successful');
+                    } else if (data.detail){
+                        alert(data.detail);
+                    } else {
+                        let msg = 'Login failed';
+                        if (data.detail === String){
+                            msg += `\n${data.detail}`;
+                        }
+                        if (data.detail === Array){
+                            msg += `\n${data.detail[0].msg}`;
+                        }
+                        alert(msg);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+    }
+  </script>
+</body>
+</html>
