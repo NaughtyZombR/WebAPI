@@ -54,7 +54,7 @@ async def startup():
 async def read_root(request: Request):
     server_urn = f"{request.scope.get('server')[0]}:{request.scope.get('server')[1]}"
     return templates.TemplateResponse(
-        "index.html", {"request": request, "server_urn": server_urn}
+        "general.html", {"request": request, "server_urn": server_urn}
     )
 
 
