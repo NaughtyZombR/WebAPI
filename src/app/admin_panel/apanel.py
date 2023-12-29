@@ -22,8 +22,7 @@ class AdminPanel:
         )
 
         self.admin.add_view(UserAdmin)
-
-        # self.admin.add_view(ArtworkAdmin)
-        # self.admin.add_view(ArtworkImageAdmin)
-        # self.admin.add_view(ArtworkLocationAdmin)
-        # self.admin.add_view(ArtworkModerationAdmin)
+        self.admin.add_view(BoardAdmin)
+        self.admin.add_view(BoardColumnAdmin)
+        self.admin.add_view(TaskAdmin)
+        self.admin.add_view(TaskHistoryAdmin)
